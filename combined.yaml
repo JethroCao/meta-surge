@@ -357,38 +357,28 @@ rule-providers:
 
 # 7. 策略组
 proxy-groups:
-  # 谷歌专用组：专门为 Google、Gemini 等服务准备
+  # 谷歌专用组
   - name: "🔍 Google"
     type: select # 手动选择模式：可以在 UI 界面点击切换不同节点
     use: [provider_a] # 引用 proxy-providers 中定义的 provider_a 节点源
     # 正则过滤器：(?i) 表示不区分大小写。
-    # 逻辑：只从 provider_a 订阅中筛选出名称包含“美国、US、USA”或美国国旗图标的节点。
-    filter: "(?i)美国|US|USA|🇺🇲|🇺🇸"
+    # 逻辑：只从 provider_a 订阅中筛选出名称包含“美国、US、USA”的节点。 
+    # 请根据实际节点命名调整下面filter 并打开filter注释
+    # filter: "(?i)美国|US|USA"
   # 高速视频/大流量组：适用于 YouTube、Netflix、TikTok 等
   - name: "🚀 高速视频"
     type: select # 手动选择模式
-    # 联合引用：同时从“provider_b”和“provider_a”两个订阅源中抓取节点。
-    use: [provider_b, provider_a]
-    # 过滤器逻辑：筛选出香港、新加坡等低延迟节点，或者包含 Akari、IEPL、IPLC 等代表高带宽/专线特征的节点。
+    # 只在“provider_b”订阅源中抓取节点。
+    use: [provider_b]
+    # 过滤器逻辑：筛选出香港、新加坡等低延迟节点，或者包含IEPL、IPLC 等代表高带宽/专线特征的节点。
     # 这样可以确保看 4K 视频或刷短视频时，优先使用这些高质量通道。
-    filter: "(?i)香港|新加坡|HK|SG|Akari|IEPL|IPLC"
+    # 请根据实际节点命名调整下面filter 并打开filter注释
+    # filter: "(?i)香港|新加坡|HK|SG|IEPL|IPLC"
+  # AI 专用组：适用于 ChatGPT、Claude 等 AI 服务，确保访问稳定且延迟低。
   - name: "🤖 ChatGPT"
     type: select
     use: [provider_a]
-    filter: "(?i)AI-Optimized|GPT|美国|US"
-  - name: "🐙 GitHub"
-    type: select
-    use: [provider_b, provider_a]
-    filter: "(?i)香港|新加坡|HK|SG|IEPL"
-  - name: "🍎 Apple"
-    type: select
-    use: [provider_b]
-  - name: "💳 PayPal"
-    type: select
-    use: [provider_b]
-  - name: "Ⓜ️ Microsoft"
-    type: select
-    use: [provider_a]
+  # 其他服务组：适用于其他需要科学上网的服务，如社交媒体、云存储等。
   - name: "🐟 漏网之鱼"
     type: select
     use: [provider_a, provider_b]
@@ -417,26 +407,20 @@ rules:
   # --- 第三层：大流量媒体分流 (保障 4K 视频不卡顿) ---
 
   # 视频流媒体：指向“高速视频”组，通常筛选香港或新加坡等高带宽节点。
-  - RULE-SET,github_domain,🐙 GitHub
   - RULE-SET,youtube_domain,🚀 高速视频
   - RULE-SET,appletv_domain,🚀 高速视频
-  - RULE-SET,apple_domain,🍎 Apple
   - RULE-SET,tiktok_domain,🚀 高速视频
   - RULE-SET,twitter_domain,🚀 高速视频
   - RULE-SET,telegram_domain,🚀 高速视频
   - RULE-SET,netflix_domain,🚀 高速视频
   - RULE-SET,disney_domain,🚀 高速视频
   - RULE-SET,spotify_domain,🚀 高速视频
-  - RULE-SET,paypal_domain,💳 PayPal
-  - RULE-SET,onedrive_domain,Ⓜ️ Microsoft
-  - RULE-SET,microsoft_domain,Ⓜ️ Microsoft
 
   # 非中国 IP 走代理
   - RULE-SET,geolocation-!cn,🐟 漏网之鱼
 
   # IP 规则
   - RULE-SET,google_ip,🔍 Google,no-resolve
-  - RULE-SET,apple_ip,🍎 Apple,no-resolve
   - RULE-SET,netflix_ip,🚀 高速视频,no-resolve
   - RULE-SET,telegram_ip,🚀 高速视频,no-resolve
   - RULE-SET,twitter_ip,🚀 高速视频,no-resolve

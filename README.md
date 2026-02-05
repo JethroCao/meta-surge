@@ -2,6 +2,18 @@
 
 这是基于 Clash Meta (Mihomo) 内核构建的高度自动化分流方案。
 
+# 🚀 3 分钟上手（从 clone 到可用）
+
+1. `git clone` 本项目。
+2. 打开 `combined.yaml`，找到 `proxy-providers`，把订阅链接替换成你自己的。
+3. 按需调整 `proxy-groups`（节点如何分组）与 `rules`（如何分流）。
+4. ClashX Meta → 配置 → 打开配置文件夹，把 `combined.yaml` 放进去。
+5. ClashX Meta → 选择配置 `combined`。
+6. ClashX Meta → Meta → 代理 Providers → 更新全部。
+7. ClashX Meta → Meta → 规则 Providers → 更新全部。
+
+Maintenance: 改动 `combined.yaml` 后，请在 UI 中更新 Providers 以触发 MRS 规则集下载。
+
 # 🏗️ 配置核心逻辑指南
 
 本仓库的配置文件遵循 “解耦 -> 筛选 -> 调度” 的模块化设计方案。
@@ -26,6 +38,40 @@ proxy-providers:
       enable: true
       interval: 600
       url: http://www.gstatic.com/generate_204
+  provider_b:
+    type: http
+    url: "你的订阅链接"
+    interval: 3600
+    path: ./provider_b.yaml
+    health-check:
+      enable: true
+      interval: 600
+      url: http://www.gstatic.com/generate_204
+```
+
+### 如何新增一个 Provider
+步骤：
+1. 在 `proxy-providers` 下新增一个条目，起一个唯一的名称（例如 `provider_c`）。
+2. 复制现有 provider 的结构，替换 `url` 和 `path`。
+3. 到 `proxy-groups` 里把新 provider 加到 `use: [...]` 中，或为它新建分组。
+
+示例：
+```yaml
+proxy-providers:
+  provider_c:
+    type: http
+    url: "你的订阅链接"
+    interval: 3600
+    path: ./provider_c.yaml
+    health-check:
+      enable: true
+      interval: 600
+      url: http://www.gstatic.com/generate_204
+
+proxy-groups:
+  - name: "🧩 新节点组"
+    type: select
+    use: [provider_c]
 ```
 
 ## 2. 策略分组 (Proxy Groups)
@@ -36,6 +82,39 @@ proxy-providers:
 - `type: select`: 手动选择，适合归属地敏感业务（Gemini/AI）。
 - `type: url-test`: 自动优选，适合大流量业务（视频/下载）。
 - `filter`: 使用正则匹配关键字，如 `(?i)美国|US` 自动抓取美国节点。
+
+### 新增或修改 Proxy Groups
+步骤：
+1. 复制一个现有组，改 `name`（必须唯一）。
+2. 选择 `type`（`select` 手动/`url-test` 自动测速/`fallback` 主备/`load-balance` 负载）。
+3. 用 `use` 指向需要的 provider（如 `provider_a` / `provider_b`）。
+4. 需要筛选时加 `filter`；不需要就留空或注释掉。
+
+示例：新增一个“日本自动测速组”
+```yaml
+proxy-groups:
+  - name: "🇯🇵 日本自动"
+    type: url-test
+    use: [provider_a]
+    filter: "(?i)日本|JP|Tokyo|Osaka"
+```
+
+示例：修改现有组（只替换筛选条件）
+```yaml
+proxy-groups:
+  - name: "🚀 高速视频"
+    type: select
+    use: [provider_b]
+    filter: "(?i)香港|新加坡|HK|SG|IEPL|IPLC"
+```
+
+示例：入口组通过 `proxies` 引用其他组
+```yaml
+proxy-groups:
+  - name: "🚀 一键代理"
+    type: select
+    proxies: ["🔍 Google", "🤖 ChatGPT", "🚀 高速视频", "🐟 漏网之鱼"]
+```
 
 ### `filter` 使用教程（节点名正则）
 `filter` 会对“节点名称”做正则匹配，命中即加入该策略组。常用写法：
@@ -56,60 +135,28 @@ filter: "(?i)日本|JP|Tokyo|Osaka"
 filter: "(?i)^(?!.*(专线|IPLC)).*(美国|US|USA).*"
 ```
 
-**4) 绑定业务标签**
+**进阶匹配（业务标签/前后缀）**
 ```yaml
 filter: "(?i)(Netflix|NF|解锁)"
-```
-
-**5) 仅匹配特定前缀/后缀**
-```yaml
 filter: "^(?i)US-"
-filter: "(?i)-A$"
 ```
 
 **小贴士**
 - `(?i)` 表示忽略大小写。
 - 关键字之间用 `|` 代表“或”。
-- `.` `(` `)` `+` `*` `?` 等为正则特殊字符，需匹配本身时用反斜杠转义。
-- 建议优先用简单关键字组合，复杂正则仅在必要时使用。
+- 复杂正则仅在必要时使用。
 
-### Proxy Groups 完整教程（怎么改/怎么扩展）
-**1) 最常见字段**
+### Proxy Groups 速查（字段与排错）
+**字段速查**
 - `name`: 组名，必须唯一。
-- `type`: 决定选择方式（见下一条）。
-- `use`: 从哪些 `proxy-providers` 引入节点。
-- `filter`: 用正则筛选节点名称。
-- `proxies`: 直接引用其他组或节点（用于组嵌套）。
+- `type`: 选择方式（`select`/`url-test`/`fallback`/`load-balance`）。
+- `use`: 引用哪些 `proxy-providers`。
+- `filter`: 节点名正则筛选（可选）。
+- `proxies`: 引用其他组或节点（用于组嵌套）。
 
-**2) 常用 type 选择**
-- `select`: 手动选择，适合 AI/支付/工作流。
-- `url-test`: 自动测速选最快，适合视频/下载。
-- `fallback`: 主用+备选，主故障自动切换。
-- `load-balance`: 负载均衡，适合多连接业务。
-
-**3) 组嵌套示例**
-```yaml
-proxy-groups:
-  - name: "🚀 一键代理"
-    type: select
-    proxies: ["🔍 Google", "🧠 AI", "♻️ 自动"]
-  - name: "♻️ 自动"
-    type: url-test
-    use: [provider_a]
-    filter: "(?i)日本|JP|Tokyo"
-```
-
-**4) 常见问题排查**
+**常见问题**
 - 组里没有节点：检查 `filter` 是否过严，或 provider 名称是否正确。
 - 节点很多但选不到：优先用 `use` + `filter`，避免全量加入。
-
-```yaml
-proxy-groups:
-  - name: "🔍 Google"
-    type: select
-    use: [provider_a]
-    filter: "(?i)美国|US|USA" # 自动过滤美国节点，锁定 Gemini 可用区
-```
 
 ## 3. 分流调度 (Rules)
 
@@ -128,15 +175,12 @@ proxy-groups:
 
 **1.1) 规则写法速查**
 ```yaml
-- DOMAIN,example.com,🚀 一键代理
-- DOMAIN-SUFFIX,example.com,DIRECT
-- DOMAIN-KEYWORD,openai,🧠 AI
-- IP-CIDR,1.1.1.0/24,🚀 一键代理,no-resolve
-- GEOIP,US,🔍 Google
+- RULE-SET,google_domain,🔍 Google
+- RULE-SET,youtube_domain,🚀 高速视频
 ```
 
 **2) 新增某个服务**
-先在规则集里加（或引入）对应的 `RULE-SET`，再在 rules 里插入一行即可：
+先在 `rule-providers` 里添加对应的规则集（`RULE-SET` 来源），再在 `rules` 里插入一行即可：
 ```yaml
 - RULE-SET,telegram_domain,📨 Telegram
 ```
@@ -164,18 +208,7 @@ rules:
   - MATCH,🐟 漏网之鱼                      # 最终兜底：万能捕蚊灯
 ```
 
-# 🛠️ 安装与部署
-安装方式（以 macOS 的 ClashX Meta 为例）：
-1. `git clone` 本项目。
-2. 打开 `combined.yaml`，将 `proxy-providers` 中的订阅链接替换为你自己的。
-3. 根据自己节点实际情况，调整 `proxy-groups` 与 `rules`（分组与分流策略）。
-4. 在 ClashX Meta 中依次点击：配置 → 打开配置文件夹。
-5. 将 `combined.yaml` 放入该配置文件夹。
-6. 回到 ClashX Meta，选择配置 `combined`。
+# 🖼️ 参考截图（ClashX Meta）
 <img src="assets/rules-1.png" width="400" alt="rules-1" />
-7. 在 ClashX Meta 中依次点击：Meta → 代理 Providers → 更新全部。
 <img src="assets/rules-2.png" width="400" alt="rules-2" />
-8. 在 ClashX Meta 中依次点击：Meta → 规则 Providers → 更新全部。
 <img src="assets/rules-3.png" width="400" alt="rules-3" />
-
-Maintenance: 改动 `combined.yaml` 后，请在 UI 中更新 Providers 以触发 MRS 规则集下载。
