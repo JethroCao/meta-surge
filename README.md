@@ -73,6 +73,36 @@ filter: "(?i)-A$"
 - `.` `(` `)` `+` `*` `?` 等为正则特殊字符，需匹配本身时用反斜杠转义。
 - 建议优先用简单关键字组合，复杂正则仅在必要时使用。
 
+### Proxy Groups 完整教程（怎么改/怎么扩展）
+**1) 最常见字段**
+- `name`: 组名，必须唯一。
+- `type`: 决定选择方式（见下一条）。
+- `use`: 从哪些 `proxy-providers` 引入节点。
+- `filter`: 用正则筛选节点名称。
+- `proxies`: 直接引用其他组或节点（用于组嵌套）。
+
+**2) 常用 type 选择**
+- `select`: 手动选择，适合 AI/支付/工作流。
+- `url-test`: 自动测速选最快，适合视频/下载。
+- `fallback`: 主用+备选，主故障自动切换。
+- `load-balance`: 负载均衡，适合多连接业务。
+
+**3) 组嵌套示例**
+```yaml
+proxy-groups:
+  - name: "🚀 一键代理"
+    type: select
+    proxies: ["🔍 Google", "🧠 AI", "♻️ 自动"]
+  - name: "♻️ 自动"
+    type: url-test
+    use: [provider_a]
+    filter: "(?i)日本|JP|Tokyo"
+```
+
+**4) 常见问题排查**
+- 组里没有节点：检查 `filter` 是否过严，或 provider 名称是否正确。
+- 节点很多但选不到：优先用 `use` + `filter`，避免全量加入。
+
 ```yaml
 proxy-groups:
   - name: "🔍 Google"
@@ -96,6 +126,15 @@ proxy-groups:
 - 规则从上到下依次命中，想“更优先”就往上移。
 - `MATCH` 永远放最后。
 
+**1.1) 规则写法速查**
+```yaml
+- DOMAIN,example.com,🚀 一键代理
+- DOMAIN-SUFFIX,example.com,DIRECT
+- DOMAIN-KEYWORD,openai,🧠 AI
+- IP-CIDR,1.1.1.0/24,🚀 一键代理,no-resolve
+- GEOIP,US,🔍 Google
+```
+
 **2) 新增某个服务**
 先在规则集里加（或引入）对应的 `RULE-SET`，再在 rules 里插入一行即可：
 ```yaml
@@ -113,6 +152,10 @@ proxy-groups:
 - IP 类规则（`IP-CIDR` / `RULE-SET` 的 IP 列表）建议加 `no-resolve`，提升性能。
 - 域名类规则不需要 `no-resolve`。
 
+**5) 规则调整建议**
+- 新业务优先放在同类规则上方，避免被更粗的规则吞掉。
+- 规则命中不对时，先检查是否被更高优先级的规则拦截。
+
 ```yaml
 rules:
   - RULE-SET,private_ip,DIRECT,no-resolve  # 优先级最高：内网放行
@@ -125,13 +168,14 @@ rules:
 安装方式（以 macOS 的 ClashX Meta 为例）：
 1. `git clone` 本项目。
 2. 打开 `combined.yaml`，将 `proxy-providers` 中的订阅链接替换为你自己的。
-3. 在 ClashX Meta 中依次点击：配置 → 打开配置文件夹。
-4. 将 `combined.yaml` 放入该配置文件夹。
-5. 回到 ClashX Meta，选择配置 `combined`。
-![alt text](assets/rules-1.png)
-6. 在 ClashX Meta 中依次点击：Meta → 代理 Providers → 更新全部。
-![alt text](assets/rules-2.png)
-7. 在 ClashX Meta 中依次点击：Meta → 规则 Providers → 更新全部。
-![alt text](assets/rules-3.png)
+3. 根据自己节点实际情况，调整 `proxy-groups` 与 `rules`（分组与分流策略）。
+4. 在 ClashX Meta 中依次点击：配置 → 打开配置文件夹。
+5. 将 `combined.yaml` 放入该配置文件夹。
+6. 回到 ClashX Meta，选择配置 `combined`。
+<img src="assets/rules-1.png" width="600" alt="rules-1" />
+7. 在 ClashX Meta 中依次点击：Meta → 代理 Providers → 更新全部。
+<img src="assets/rules-2.png" width="600" alt="rules-2" />
+8. 在 ClashX Meta 中依次点击：Meta → 规则 Providers → 更新全部。
+<img src="assets/rules-3.png" width="600" alt="rules-3" />
 
 Maintenance: 改动 `combined.yaml` 后，请在 UI 中更新 Providers 以触发 MRS 规则集下载。
