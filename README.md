@@ -172,10 +172,10 @@ rules:
 4. 在 ClashX Meta 中依次点击：配置 → 打开配置文件夹。
 5. 将 `combined.yaml` 放入该配置文件夹。
 6. 回到 ClashX Meta，选择配置 `combined`。
-<img src="assets/rules-1.png" width="600" alt="rules-1" />
+<img src="assets/rules-1.png" width="400" alt="rules-1" />
 7. 在 ClashX Meta 中依次点击：Meta → 代理 Providers → 更新全部。
-<img src="assets/rules-2.png" width="600" alt="rules-2" />
+<img src="assets/rules-2.png" width="400" alt="rules-2" />
 8. 在 ClashX Meta 中依次点击：Meta → 规则 Providers → 更新全部。
-<img src="assets/rules-3.png" width="600" alt="rules-3" />
+<img src="assets/rules-3.png" width="400" alt="rules-3" />
 
 Maintenance: 改动 `combined.yaml` 后，请在 UI 中更新 Providers 以触发 MRS 规则集下载。
